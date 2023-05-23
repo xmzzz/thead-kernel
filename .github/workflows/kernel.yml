@@ -41,6 +41,21 @@ jobs:
             ref: 'master'
             path: 'img_module'
 
+      - name: Checkout vpu-vc8000e-kernel
+        uses: actions/checkout@v3
+        with:
+            repository: 'revyos/vpu-vc8000e-kernel'
+            ref: 'master'
+            path: 'vpu-vc8000e-kernel'
+
+      - name: Checkout vpu-vc8000d-kernel
+        uses: actions/checkout@v3
+        with:
+            repository: 'revyos/vpu-vc8000d-kernel'
+            ref: 'master'
+            path: 'vpu-vc8000d-kernel'
+
+
       - name: Configure toolchains
         run: |
               mkdir rootfs && mkdir rootfs/boot
@@ -95,6 +110,45 @@ jobs:
                     "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/drm_nulldisp.ko"
                   sudo install -D -p -m 644 binary_thead_linux_wayland_release/target_riscv64/kbuild/pvrsrvkm.ko \
                     "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/pvrsrvkm.ko"
+                  sudo depmod -a -b "${GITHUB_WORKSPACE}/rootfs" "${kernel_version}"
+                done
+                # cp -vr output/lib/firmware ${GITHUB_WORKSPACE}/rootfs/
+              popd
+              tree ${GITHUB_WORKSPACE}/rootfs
+
+      - name: vpu-vc8000e-kernel compile
+        run: |
+              export PATH="/opt/Xuantie-900-gcc-linux-5.10.4-glibc-x86_64-V2.6.1/bin:$PATH"
+
+              export CROSS_COMPILE=${toolchain_tripe}
+
+              pushd vpu-vc8000e-kernel
+                export KERNELDIR=${GITHUB_WORKSPACE}/kernel/
+                make -C linux/kernel_module KDIR=${KERNELDIR} ARCH=${ARCH}
+                for kernel_version in $(ls ${GITHUB_WORKSPACE}/rootfs/lib/modules/);
+                do
+                  find ./linux -name "*.ko" | xargs -i sudo install -D -p -m 644 {} \
+                    "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/"
+                  sudo depmod -a -b "${GITHUB_WORKSPACE}/rootfs" "${kernel_version}"
+                done
+                # cp -vr output/lib/firmware ${GITHUB_WORKSPACE}/rootfs/
+              popd
+              tree ${GITHUB_WORKSPACE}/rootfs
+
+      - name: vpu-vc8000d-kernel compile
+        run: |
+              export PATH="/opt/Xuantie-900-gcc-linux-5.10.4-glibc-x86_64-V2.6.1/bin:$PATH"
+
+              export CROSS_COMPILE=${toolchain_tripe}
+
+              pushd vpu-vc8000d-kernel
+                export KERNELDIR=${GITHUB_WORKSPACE}/kernel/
+                make -C linux/subsys_driver KDIR=${KERNELDIR} ARCH=${ARCH} CROSS=${CROSS_COMPILE}
+                make -C linux/memalloc KDIR=${KERNELDIR} ARCH=${ARCH} CROSS=${CROSS_COMPILE}
+                for kernel_version in $(ls ${GITHUB_WORKSPACE}/rootfs/lib/modules/);
+                do
+                  find ./linux -name "*.ko" | xargs -i sudo install -D -p -m 644 {} \
+                    "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/"
                   sudo depmod -a -b "${GITHUB_WORKSPACE}/rootfs" "${kernel_version}"
                 done
                 # cp -vr output/lib/firmware ${GITHUB_WORKSPACE}/rootfs/
