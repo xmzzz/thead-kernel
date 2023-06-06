@@ -55,6 +55,12 @@ jobs:
             ref: 'master'
             path: 'vpu-vc8000d-kernel'
 
+      - name: Checkout video_memory
+        uses: actions/checkout@v3
+        with:
+            repository: 'revyos/video_memory'
+            ref: 'master'
+            path: 'video_memory'
 
       - name: Configure toolchains
         run: |
@@ -148,6 +154,25 @@ jobs:
                 for kernel_version in $(ls ${GITHUB_WORKSPACE}/rootfs/lib/modules/);
                 do
                   find ./linux -name "*.ko" | xargs -i sudo install -D -p -m 644 {} \
+                    "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/"
+                  sudo depmod -a -b "${GITHUB_WORKSPACE}/rootfs" "${kernel_version}"
+                done
+                # cp -vr output/lib/firmware ${GITHUB_WORKSPACE}/rootfs/
+              popd
+              tree ${GITHUB_WORKSPACE}/rootfs
+
+      - name: video_memory
+        run: |
+              export PATH="/opt/Xuantie-900-gcc-linux-5.10.4-glibc-x86_64-V2.6.1/bin:$PATH"
+
+              export CROSS_COMPILE=${toolchain_tripe}
+
+              pushd video_memory
+                export KERNELDIR=${GITHUB_WORKSPACE}/kernel/
+                make -C driver KDIR=${KERNELDIR} ARCH=${ARCH} CROSS=${CROSS_COMPILE}
+                for kernel_version in $(ls ${GITHUB_WORKSPACE}/rootfs/lib/modules/);
+                do
+                  find ./driver -name "*.ko" | xargs -i sudo install -D -p -m 644 {} \
                     "${GITHUB_WORKSPACE}/rootfs/lib/modules/${kernel_version}/extra/"
                   sudo depmod -a -b "${GITHUB_WORKSPACE}/rootfs" "${kernel_version}"
                 done
